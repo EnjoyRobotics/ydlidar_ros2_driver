@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  YDLIDAR SYSTEM
  *  YDLIDAR ROS 2 Node
  *
@@ -206,7 +206,7 @@ class YDLidarClass: public rclcpp::Node {
       int size = (scan.config.max_angle - scan.config.min_angle)/ scan.config.angle_increment + 1;
       scan_msg->ranges.resize(size);
       scan_msg->intensities.resize(size);
-      for(size_t i=0; i < scan.points.size(); i++) {
+      for(size_t i=0; i < (scan.points.size() <= 360) ? scan.points.size(): 360; i++) {
         int index = std::ceil((scan.points[i].angle - scan.config.min_angle)/scan.config.angle_increment);
         if(index >=0 && index < size) {
           if (scan.points[i].range > 0.0) {
