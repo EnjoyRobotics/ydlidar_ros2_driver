@@ -22,17 +22,14 @@ from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition, UnlessCondition
 
 import os
+from distutils.util import strtobool
 
 
 def generate_launch_description():
     share_dir = get_package_share_directory('ydlidar_ros2_driver')
     parameter_file = LaunchConfiguration('params_file')
-    node_name = 'ydlidar_ros2_driver_node'
 
-    arg_simulation            = LaunchConfiguration('simulation')
-    simulation = os.environ.get('SIMULATION')
-    if simulation in [None, '']:
-        simulation = 'False'
+    simulation = bool(strtobool(os.environ.get('SIMULATION')))
 
     params_declare = DeclareLaunchArgument('params_file',
                                            default_value=os.path.join(
@@ -44,9 +41,9 @@ def generate_launch_description():
                                 name='ydlidar_ros2_driver_node',
                                 output='screen',
                                 emulate_tty=True,
-                                parameters=[parameter_file],
+                                parameters=[parameter_file, {'use_sim_time': simulation}],
                                 namespace='lidar1',
-                                condition=UnlessCondition(arg_simulation),
+                                condition=UnlessCondition(str(simulation)),
                                 )
 
     driver_node2 = LifecycleNode(package='ydlidar_ros2_driver',
@@ -54,14 +51,13 @@ def generate_launch_description():
                                 name='ydlidar_ros2_driver_node',
                                 output='screen',
                                 emulate_tty=True,
-                                parameters=[parameter_file],
+                                parameters=[parameter_file, {'use_sim_time': simulation}],
                                 namespace='lidar2',
-                                condition=UnlessCondition(arg_simulation),
+                                condition=UnlessCondition(str(simulation)),
                                 )
 
 
     return LaunchDescription([
-        DeclareLaunchArgument('simulation', default_value=simulation),
         params_declare,
         driver_node1,
         driver_node2,
