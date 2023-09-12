@@ -156,7 +156,7 @@ class YDLidarClass: public rclcpp::Node
             if (laser.doProcessSimple(scan)) {
 
                 scan_msg->header.frame_id = frame_id;
-                scan_msg->header.stamp = get_clock()->now();
+                scan_msg->header.stamp = this->now();
                 scan_msg->angle_min = scan.config.min_angle;
                 scan_msg->angle_max = scan.config.max_angle;
                 scan_msg->angle_increment = scan.config.angle_increment;
