@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
       scan_msg->range_max = scan.config.max_range;
       
       int size = (scan.config.max_angle - scan.config.min_angle)/ scan.config.angle_increment + 1;
-      scan_msg->ranges.resize(size);
+      scan_msg->ranges.resize(size, std::numeric_limits<float>::infinity());
       scan_msg->intensities.resize(size);
 
       pc_msg->channels.resize(2);
@@ -220,15 +220,13 @@ int main(int argc, char *argv[]) {
 
       for(size_t i=0; i < scan.points.size(); i++) {
         int index = std::ceil((scan.points[i].angle - scan.config.min_angle)/scan.config.angle_increment);
-        if(index >=0 && index < size) {
-	  if (scan.points[i].range >= scan.config.min_range) {
-            scan_msg->ranges[index] = scan.points[i].range;
-            scan_msg->intensities[index] = scan.points[i].intensity;
-	  }
+        if(index >=0 && index < size && scan.points[i].range != 0.0) {
+          scan_msg->intensities[index] = scan.points[i].intensity;
+          scan_msg->ranges[index] = std::max(std::min(scan.points[i].range, scan.config.max_range), scan.config.min_range);
         }
 
-	if (scan.points[i].range >= scan.config.min_range &&
-             scan.points[i].range <= scan.config.max_range) {
+        if (scan.points[i].range >= scan.config.min_range &&
+            scan.points[i].range <= scan.config.max_range) {
           geometry_msgs::msg::Point32 point;
           point.x = scan.points[i].range * cos(scan.points[i].angle);
           point.y = scan.points[i].range * sin(scan.points[i].angle);
