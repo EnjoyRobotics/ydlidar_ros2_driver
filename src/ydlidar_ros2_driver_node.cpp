@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
   node->declare_parameter("intensity_bit", optval);
   node->get_parameter("intensity_bit", optval);
   laser.setlidaropt(LidarPropIntenstiyBit, &optval, sizeof(int));
-     
+
   //////////////////////bool property/////////////////
   /// fixed angle resolution
   bool b_optvalue = false;
@@ -161,10 +161,10 @@ int main(int argc, char *argv[]) {
   } else {
     RCLCPP_ERROR(node->get_logger(), "%s\n", laser.DescribeError());
   }
-  
+
   auto laser_pub = node->create_publisher<sensor_msgs::msg::LaserScan>("scan", rclcpp::SensorDataQoS());
   auto pc_pub = node->create_publisher<sensor_msgs::msg::PointCloud>("point_cloud", rclcpp::SensorDataQoS());
-  
+
   auto stop_scan_service =
     [&laser](const std::shared_ptr<rmw_request_id_t> request_header,
   const std::shared_ptr<std_srvs::srv::Empty::Request> req,
@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
       scan_msg->time_increment = scan.config.time_increment;
       scan_msg->range_min = scan.config.min_range;
       scan_msg->range_max = scan.config.max_range;
-      
+
       int size = (scan.config.max_angle - scan.config.min_angle)/ scan.config.angle_increment + 1;
       scan_msg->ranges.resize(size, std::numeric_limits<float>::infinity());
       scan_msg->intensities.resize(size);
