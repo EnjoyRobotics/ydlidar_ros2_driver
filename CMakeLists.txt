@@ -19,6 +19,8 @@ find_package(sensor_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 
 ############## YDLIDAR SDK START#####################################
 #find ydlidar_sdk package
@@ -48,6 +50,8 @@ ament_target_dependencies(${PROJECT_NAME}_node
     "visualization_msgs"
     "geometry_msgs"
     "std_srvs"
+    "diagnostic_updater"
+    "diagnostic_msgs"
     )
 
 target_link_libraries(${PROJECT_NAME}_node
