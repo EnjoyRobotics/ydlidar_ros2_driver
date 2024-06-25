@@ -24,6 +24,9 @@
 #include "rclcpp/time_source.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "std_srvs/srv/empty.hpp"
+#include <diagnostic_updater/diagnostic_updater.hpp>
+#include <diagnostic_updater/publisher.hpp>
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <vector>
 #include <iostream>
 #include <string>
@@ -36,6 +39,8 @@ int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
   auto node = rclcpp::Node::make_shared("ydlidar_ros2_driver_node");
+
+  diagnostic_updater::Updater diagnostic_updater{node};
 
   RCLCPP_INFO(node->get_logger(), "[YDLIDAR INFO] Current ROS Driver Version: %s\n", ((std::string)ROS2Verision).c_str());
 
@@ -88,7 +93,7 @@ int main(int argc, char *argv[]) {
   node->declare_parameter("intensity_bit", optval);
   node->get_parameter("intensity_bit", optval);
   laser.setlidaropt(LidarPropIntenstiyBit, &optval, sizeof(int));
-     
+
   //////////////////////bool property/////////////////
   /// fixed angle resolution
   bool b_optvalue = false;
@@ -145,10 +150,10 @@ int main(int argc, char *argv[]) {
   node->get_parameter("range_min", f_optvalue);
   laser.setlidaropt(LidarPropMinRange, &f_optvalue, sizeof(float));
   /// unit: Hz
-  f_optvalue = 10.f;
-  node->declare_parameter("frequency", f_optvalue);
-  node->get_parameter("frequency", f_optvalue);
-  laser.setlidaropt(LidarPropScanFrequency, &f_optvalue, sizeof(float));
+  float scan_frequency = 10.0;
+  node->declare_parameter("frequency", scan_frequency);
+  node->get_parameter("frequency", scan_frequency);
+  laser.setlidaropt(LidarPropScanFrequency, &scan_frequency, sizeof(float));
 
   bool invalid_range_is_inf = false;
   node->declare_parameter("invalid_range_is_inf", invalid_range_is_inf);
@@ -161,10 +166,10 @@ int main(int argc, char *argv[]) {
   } else {
     RCLCPP_ERROR(node->get_logger(), "%s\n", laser.DescribeError());
   }
-  
+
   auto laser_pub = node->create_publisher<sensor_msgs::msg::LaserScan>("scan", rclcpp::SensorDataQoS());
   auto pc_pub = node->create_publisher<sensor_msgs::msg::PointCloud>("point_cloud", rclcpp::SensorDataQoS());
-  
+
   auto stop_scan_service =
     [&laser](const std::shared_ptr<rmw_request_id_t> request_header,
   const std::shared_ptr<std_srvs::srv::Empty::Request> req,
@@ -184,6 +189,39 @@ int main(int argc, char *argv[]) {
   };
 
   auto start_service = node->create_service<std_srvs::srv::Empty>("start_scan",start_scan_service);
+
+  auto check_state = [&laser](diagnostic_updater::DiagnosticStatusWrapper &stat) {
+    DriverError error_code = laser.getDriverError();
+    if (error_code != NoError) {
+      stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "YDLIDAR has an error");
+      stat.add("Error Code", error_code);
+      stat.add("Error Message", laser.DescribeError());
+    } else {
+      stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "YDLIDAR is running");
+    }
+  };
+
+  device_info devinfo;
+  if (laser.getDeviceInfo(devinfo, EPT_Base)){
+    char serial_str[17];
+    for (int i = 0; i < 16; i++) {
+        sprintf(&serial_str[i], "%01X", devinfo.serialnum[i] & 0xff);
+    }
+    serial_str[16] = '\0';
+
+    diagnostic_updater.setHardwareID(serial_str);
+  } else {
+    diagnostic_updater.setHardwareID("none");
+  }
+  diagnostic_updater.add("YDLIDAR Driver Status", check_state);
+
+  double freq = static_cast<double>(scan_frequency);
+  auto scan_pub_freq = std::make_shared<diagnostic_updater::TopicDiagnostic>(
+            "scan", \
+            std::ref(diagnostic_updater), \
+            diagnostic_updater::FrequencyStatusParam(&freq, &freq, 0.1, 1), \
+            diagnostic_updater::TimeStampStatusParam(-0.1, 0.1)
+            );
 
   rclcpp::WallRate loop_rate(20);
 
@@ -207,7 +245,7 @@ int main(int argc, char *argv[]) {
       scan_msg->time_increment = scan.config.time_increment;
       scan_msg->range_min = scan.config.min_range;
       scan_msg->range_max = scan.config.max_range;
-      
+
       int size = (scan.config.max_angle - scan.config.min_angle)/ scan.config.angle_increment + 1;
       scan_msg->ranges.resize(size, std::numeric_limits<float>::infinity());
       scan_msg->intensities.resize(size);
@@ -240,6 +278,7 @@ int main(int argc, char *argv[]) {
 
       laser_pub->publish(*scan_msg);
       pc_pub->publish(*pc_msg);
+      scan_pub_freq->tick(node->now());
 
     } else {
       RCLCPP_ERROR(node->get_logger(), "Failed to get scan");
